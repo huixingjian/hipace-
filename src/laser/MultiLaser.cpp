@@ -277,7 +277,7 @@ MultiLaser::GetEnvelopeFromFile (const amrex::Geometry& gm) {
         m_file_geometry = "rt";
     } else {
         //amrex::Abort("Incorrect axis labels in laser file, must be either t, y, x or t, r");
-        amrex::Abort(axis_labels);
+        amrex::Abort(std::accumulate(axis_labels.begin(), axis_labels.end(), ""));
     }
 
     const std::shared_ptr<input_type> data = laser_comp.loadChunk<input_type>();
