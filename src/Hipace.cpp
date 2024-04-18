@@ -172,6 +172,8 @@ void
 Hipace::InitData ()
 {
     HIPACE_PROFILE("Hipace::InitData()");
+
+    //Writ the prefaces in the output file
 #ifdef AMREX_USE_FLOAT
     amrex::Print() << "HiPACE++ (" << Hipace::Version() << ") running in single precision\n";
 #else
@@ -187,6 +189,8 @@ Hipace::InitData ()
     amrex::Print() << "using the leapfrog plasma particle pusher\n";
 #endif
 
+
+
     for (int lev=0; lev<m_N_level; ++lev) {
         m_fields.AllocData(lev, m_3D_geom[lev], m_slice_ba[lev], m_slice_dm[lev],
                        m_multi_plasma.m_sort_bin_size);
@@ -198,6 +202,7 @@ Hipace::InitData ()
     }
 
     m_initial_time = m_multi_beam.InitData(m_3D_geom[0]);
+
 
     if (Hipace::HeadRank()) {
         m_adaptive_time_step.GatherMinUzSlice(m_multi_beam, true);

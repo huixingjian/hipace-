@@ -21,12 +21,18 @@
 /** Whether to call amrex::Gpu::streamSynchronize() around all profiler region */
 inline int DO_DEVICE_SYNCHRONIZE = 0;
 
+//Question 1 why to use template here? int detail_level shu be enough
+//AMREX_FORCE_INLINE void doStreamSynchronize (int detail_level)
 template<int detail_level>
 AMREX_FORCE_INLINE
 void doStreamSynchronize ()
 {
     if ( DO_DEVICE_SYNCHRONIZE >= detail_level )
         amrex::Gpu::streamSynchronize();
+    /**
+     * Halt execution of code until all AMReX GPU streams have finished processing all
+     * previously requested tasks.
+     */
 }
 
 // Note that objects are destructed in the reverse order of declaration
