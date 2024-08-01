@@ -13,7 +13,6 @@
 
 #include <AMReX_Vector.H>
 #include <AMReX_ParmParse.H>
-
 #ifdef HIPACE_USE_OPENPMD
 #   include <openPMD/auxiliary/Filesystem.hpp>
 #endif
@@ -32,7 +31,7 @@ Laser::Laser (std::string name, amrex::Geometry laser_geom_3D)
         return;
         }
     }
-
+    
     else if (m_laser_init_type == "gaussian"){
         queryWithParser(pp, "a0", m_a0);
         queryWithParser(pp, "w0", m_w0);
@@ -101,9 +100,9 @@ Laser::GetEnvelopeFromFileHelper (amrex::Geometry laser_geom_3D) {
         }
 
         if (input_type == openPMD::Datatype::CFLOAT) {
-            GetEnvelopeFromFile<std::complex<float>>(laser_geom_3D);
+            GetEnvelopeFromFile<std::complex<float>>(laser_geom_3D,laser_arr);
         } else if (input_type == openPMD::Datatype::CDOUBLE) {
-            GetEnvelopeFromFile<std::complex<double>>(laser_geom_3D);
+            GetEnvelopeFromFile<std::complex<double>>(laser_geom_3D,laser_arr);
         } else {
             amrex::Abort("Unknown Datatype used in Laser input file. Must use CDOUBLE or CFLOAT\n");
         }
@@ -337,4 +336,6 @@ Laser::GetEnvelopeFromFile (amrex::Geometry laser_geom_3D) {
     amrex::Abort("loading a laser envelope from an external file requires openPMD support: "
                  "Add HiPACE_OPENPMD=ON when compiling HiPACE++.\n");
     #endif // HIPACE_USE_OPENPMD
+}
+
 }
