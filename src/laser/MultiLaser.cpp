@@ -1056,6 +1056,9 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
                         + ( -6._rt/(c*dt*dz) + 4._rt*I*djn/(c*dt) + I*4._rt*k0/(c*dt) ) * an00j00;
+                    arr(i, j, comp_rhs_r) = + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
+                                        + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2;
+                    arr(i, j, comp_rhs_i) = 0;
                 } else {
                     const Complex anm1jp1 = arr(i, j, nm1jp1_r) + I * arr(i, j, nm1jp1_i);
                     const Complex anm1jp2 = arr(i, j, nm1jp2_r) + I * arr(i, j, nm1jp2_i);
@@ -1067,10 +1070,11 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
                         + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
-                }
-                arr(i, j, comp_rhs_r) = + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
+                    arr(i, j, comp_rhs_r) = + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
                                         + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2;
-                arr(i, j, comp_rhs_i) = 0;
+                    arr(i, j, comp_rhs_i) = 0;
+                }
+
                 rhs_arr(i,j,0) = rhs;
             });
 
