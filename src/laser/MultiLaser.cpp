@@ -1053,7 +1053,7 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                     const Complex an00jp1 = arr(i, j, n00jp1_r) + I * arr(i, j, n00jp1_i);
                     const Complex an00jp2 = arr(i, j, n00jp2_r) + I * arr(i, j, n00jp2_i);
                     rhs =
-                        + 8._rt/(c*dt*dz)*(-anp1jp1+an00jp1)*exp1
+                        //+ 8._rt/(c*dt*dz)*(-anp1jp1+an00jp1)*exp1
                         + 2._rt/(c*dt*dz)*(+anp1jp2-an00jp2)*exp2
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
@@ -1063,7 +1063,7 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                     const Complex anm1jp2 = arr(i, j, nm1jp2_r) + I * arr(i, j, nm1jp2_i);
                     const Complex anm1j00 = arr(i, j, nm1j00_r) + I * arr(i, j, nm1j00_i);
                     rhs =
-                        + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
+                        //+ 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
                         + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2
                         - 4._rt/(c*c*dt*dt)*an00j00
                         + 2._rt * arr(i, j, chi) * an00j00
@@ -1093,6 +1093,10 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                 // divide rhs_fourier by -(k^2+a)
                 amrex::Real kx = (i<imid) ? dkx*i : dkx*(i-Nx);
                 amrex::Real ky = (j<jmid) ? dky*j : dky*(j-Ny);
+                Complex k2a = kx * kx + ky * ky + acoeff;
+                if (k2a.real() < dkx * dkx / 100 ){
+                    amrex::Abort("divided by too small k2a");
+                }
                 const Complex inv_k2a = abs(kx*kx + ky*ky + acoeff) > 0. ?
                     1._rt/(kx*kx + ky*ky + acoeff) : 0.;
                 arr(i, j, comp_rhs_fourier_r) = -inv_k2a.real();
