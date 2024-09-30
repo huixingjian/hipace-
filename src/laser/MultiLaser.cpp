@@ -1094,9 +1094,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                 amrex::Real kx = (i<imid) ? dkx*i : dkx*(i-Nx);
                 amrex::Real ky = (j<jmid) ? dky*j : dky*(j-Ny);
                 Complex k2a = kx*kx + ky*ky + acoeff;
-                if (k2a < ((dkx+dky)*(dkx+dky)/400)){
-                    amrex::Abort("Divided by too small value at point()" +
-                    std::string(i) +", "std::string(j)+ ")\n");
+                if (k2a < ((dkx+dky)*(dkx+dky)/4000)){
+                    amrex::Abort("Divided by too small k2a value");
                 }
                 const Complex inv_k2a = abs(kx*kx + ky*ky + acoeff) > 0. ?
                     1._rt/(kx*kx + ky*ky + acoeff) : 0.;
