@@ -1016,7 +1016,6 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
         if (dt2 > 1.5_rt*MathConst::pi) dt2 -= 2._rt*MathConst::pi;
         Complex exp1 = amrex::exp(I*(tj00-tjp1));
         Complex exp2 = amrex::exp(I*(tj00-tjp2));
-        amrex::Print()<<exp1<<" "<<exp2<<"\n";
         // D_j^n as defined in Benedetti's 2017 paper
         amrex::Real djn = ( -3._rt*dt1 + dt2 ) / (2._rt*dz);
         amrex::ParallelFor(
@@ -1069,8 +1068,9 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         - lapA
                         + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
                 }
-                arr(i, j, comp_rhs_r) = rhs.real();
-                arr(i, j, comp_rhs_i) = rhs.imag();
+                arr(i, j, comp_rhs_r) = + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
+                                        + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2;
+                arr(i, j, comp_rhs_i) = 0;
                 rhs_arr(i,j,0) = rhs;
             });
 
