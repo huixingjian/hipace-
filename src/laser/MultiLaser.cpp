@@ -1045,6 +1045,7 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                 const Complex anp1jp1 = arr(i, j, np1jp1_r) + I * arr(i, j, np1jp1_i);
                 const Complex anp1jp2 = arr(i, j, np1jp2_r) + I * arr(i, j, np1jp2_i);
                 Complex rhs;
+                Complex fac_dbug;
                 if (step == 0) {
                     // First time step: non-centered push to go
                     // from step 0 to step 1 without knowing -1.
@@ -1056,10 +1057,10 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
                         + ( -6._rt/(c*dt*dz) + 4._rt*I*djn/(c*dt) + I*4._rt*k0/(c*dt) ) * an00j00;
-                    arr(i, j, comp_rhs_r) = + 8._rt/(c*dt*dz)*(-anp1jp1.real()+an00jp1.real())*exp1
-                                            + 2._rt/(c*dt*dz)*(+anp1jp2.real()-an00jp2.real())*exp2;
-                    arr(i, j, comp_rhs_i) = + 8._rt/(c*dt*dz)*(-anp1jp1.imag()+an00jp1.imag())*exp1
-                                            + 2._rt/(c*dt*dz)*(+anp1jp2.imag()-an00jp2.imag())*exp2;;
+                    fac_dbug = + 8._rt/(c*dt*dz)*(-anp1jp1 + an00jp1))*exp1
+                               + 2._rt/(c*dt*dz)*(+anp1jp2 - an00jp2)*exp2;
+                    arr(i, j, comp_rhs_r) = fac_dbug.real();
+                    arr(i, j, comp_rhs_i) = fac_dbug.imag();
                 } else {
                     const Complex anm1jp1 = arr(i, j, nm1jp1_r) + I * arr(i, j, nm1jp1_i);
                     const Complex anm1jp2 = arr(i, j, nm1jp2_r) + I * arr(i, j, nm1jp2_i);
@@ -1071,10 +1072,10 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
                         + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
-                    arr(i, j, comp_rhs_r) = + 4._rt/(c*dt*dz)*(-anp1jp1.real()+anm1jp1.real())*exp1
-                                            + 1._rt/(c*dt*dz)*(+anp1jp2.real()-anm1jp2.real())*exp2;
-                    arr(i, j, comp_rhs_i) = + 4._rt/(c*dt*dz)*(-anp1jp1.imag()+anm1jp1.imag())*exp1
-                                            + 1._rt/(c*dt*dz)*(+anp1jp2.imag()-anm1jp2.imag())*exp2;;
+                    fac_dbug =  + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
+                                + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2;
+                    arr(i, j, comp_rhs_r) = fac_dbug.real();
+                    arr(i, j, comp_rhs_i) = fac_dbug.imag();
                 }
 
                 rhs_arr(i,j,0) = rhs;
