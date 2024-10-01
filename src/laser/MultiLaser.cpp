@@ -1058,7 +1058,7 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
                         + ( -6._rt/(c*dt*dz) + 4._rt*I*djn/(c*dt) + I*4._rt*k0/(c*dt) ) * an00j00
-                        + fac_dbug;
+                       // + fac_dbug;
 
                     arr(i, j, comp_rhs_r) = fac_dbug.real();
                     arr(i, j, comp_rhs_i) = fac_dbug.imag();
@@ -1074,7 +1074,7 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
                         + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00
-                        + fac_dbug;
+                       // + fac_dbug;
 
                     arr(i, j, comp_rhs_r) = fac_dbug.real();
                     arr(i, j, comp_rhs_i) = fac_dbug.imag();
