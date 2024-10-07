@@ -556,7 +556,7 @@ MultiLaser::AdvanceSliceMG (amrex::Real dt, int step)
                 const Complex anp1jp2 = arr(i, j, np1jp2_r) + I * arr(i, j, np1jp2_i);
                 acoeff_real_arr(i,j,0) = do_avg_rhs ?
                     acoeff_real_scalar + arr(i, j, chi) : acoeff_real_scalar;
-                Complex rhs_check；
+                Complex rhs_check;
                 Complex rhs;
                 if (step == 0) {
                     // First time step: non-centered push to go
