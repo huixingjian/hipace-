@@ -763,8 +763,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                             - lapA
                             + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
                 }
-                arr(i, j, comp_rhs_r) = -anp1jp1;
-                arr(i, j, comp_rhs_i) = an00jp1;
+                arr(i, j, comp_rhs_r) = -abs(anp1jp1);
+                arr(i, j, comp_rhs_i) = abs(an00jp1);
                 rhs_arr(i,j,0) = rhs;
             });
 
