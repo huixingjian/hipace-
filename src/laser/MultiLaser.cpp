@@ -771,8 +771,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
         // acoeff_imag is supposed to be a nx*ny array.
         // For the sake of simplicity, we evaluate it on-axis only.
         const Complex acoeff =
-            step == 0 ? 6._rt/(c*dt*dz) - I * 4._rt * ( k0 + djn ) / (c*dt) :
-             3._rt/(c*dt*dz) + 2._rt/(c*c*dt*dt) - I * 2._rt * ( k0 + djn ) / (c*dt);
+            step == 0 ? 6._rt/(c*abs(dt)*dz) - I * 4._rt * ( k0 + djn ) / (c*abs(dt)) :
+             3._rt/(c*abs(dt)*dz) + 2._rt/(c*c*dt*dt) - I * 2._rt * ( k0 + djn ) / (c*abs(dt));
         amrex::ParallelFor(
             to2D(bx),
             [=] AMREX_GPU_DEVICE(int i, int j) noexcept {
