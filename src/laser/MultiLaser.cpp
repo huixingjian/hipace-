@@ -782,8 +782,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                 amrex::Real ky = (j<jmid) ? dky*j : dky*(j-Ny);
                 const Complex inv_k2a = abs(kx*kx + ky*ky + acoeff) > 0. ?
                     1._rt/(kx*kx + ky*ky + acoeff) : 0.;
-                arr(i, j, comp_rhs_fourier_r) = -inv_k2a.real();
-                arr(i, j, comp_rhs_fourier_i) = -inv_k2a.imag();
+                arr(i, j, comp_rhs_fourier_r) = -rhs_fourier_arr(i,j).real();
+                arr(i, j, comp_rhs_fourier_i) = -rhs_fourier_arr(i,j).imag();
                 rhs_fourier_arr(i,j) *= -inv_k2a;
                 arr(i, j, comp_rhs_r) = rhs_fourier_arr(i,j).real();
                 arr(i, j, comp_rhs_i) = rhs_fourier_arr(i,j).imag();
