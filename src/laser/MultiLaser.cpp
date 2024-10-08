@@ -777,8 +777,6 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
             to2D(bx),
             [=] AMREX_GPU_DEVICE(int i, int j) noexcept {
                 using namespace WhichLaserSlice;
-                arr(i, j, comp_rhs_r) = acoeff.real();
-                arr(i, j, comp_rhs_i) = acoeff.imag();
                 // divide rhs_fourier by -(k^2+a)
                 amrex::Real kx = (i<imid) ? dkx*i : dkx*(i-Nx);
                 amrex::Real ky = (j<jmid) ? dky*j : dky*(j-Ny);
@@ -787,6 +785,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                 arr(i, j, comp_rhs_fourier_r) = -inv_k2a.real();
                 arr(i, j, comp_rhs_fourier_i) = -inv_k2a.imag();
                 rhs_fourier_arr(i,j) *= -inv_k2a;
+                arr(i, j, comp_rhs_r) = rhs_fourier_arr(i,j).real();
+                arr(i, j, comp_rhs_i) = rhs_fourier_arr(i,j).imag();
             });
 
         // Transform rhs to Fourier space to get solution in sol
