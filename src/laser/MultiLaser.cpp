@@ -771,8 +771,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
         // acoeff_imag is supposed to be a nx*ny array.
         // For the sake of simplicity, we evaluate it on-axis only.
         const Complex acoeff =
-            step == 0 ? 6._rt/(c*abs(dt)*dz) - I * 4._rt * ( k0 + djn ) / (c*abs(dt)) :
-             3._rt/(c*abs(dt)*dz) + 2._rt/(c*c*dt*dt) - I * 2._rt * ( k0 + djn ) / (c*abs(dt));
+            step == 0 ? 6._rt/(c*dt*dz) - I * 4._rt * ( k0 + djn ) / (c*dt) :
+             3._rt/(c*dt*dz) + 2._rt/(c*c*dt*dt) - I * 2._rt * ( k0 + djn ) / (c*dt);
         amrex::ParallelFor(
             to2D(bx),
             [=] AMREX_GPU_DEVICE(int i, int j) noexcept {
@@ -782,8 +782,8 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                 amrex::Real ky = (j<jmid) ? dky*j : dky*(j-Ny);
                 const Complex inv_k2a = abs(kx*kx + ky*ky + acoeff) > 0. ?
                     1._rt/(kx*kx + ky*ky + acoeff) : 0.;
-                arr(i, j, comp_rhs_fourier_r) = -rhs_fourier_arr(i,j).real();
-                arr(i, j, comp_rhs_fourier_i) = -rhs_fourier_arr(i,j).imag();
+                arr(i, j, comp_rhs_fourier_r) = -inv_k2a.real();
+                arr(i, j, comp_rhs_fourier_i) = -inv_k2a.imag();
                 rhs_fourier_arr(i,j) *= -inv_k2a;
                 arr(i, j, comp_rhs_r) = rhs_fourier_arr(i,j).real();
                 arr(i, j, comp_rhs_i) = rhs_fourier_arr(i,j).imag();
