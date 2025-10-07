@@ -538,7 +538,7 @@ MultiLaser::AdvanceSliceMG (amrex::Real dt, int step)
         // D_j^n as defined in Benedetti's 2017 paper
         djn = ( -3._rt*dt1 + dt2 ) / (2._rt*dz);
         acoeff_real_scalar = step == 0 ? 6._rt/(c*dt*dz)
-            : 3._rt/(c*dt*dz) + 2._rt/(c*c*dt*dt);
+            : 3._rt/(c*dt*dz);
         acoeff_imag_scalar = step == 0 ? -4._rt * ( k0 + djn ) / (c*dt)
             : -2._rt * ( k0 + djn ) / (c*dt);
 
@@ -594,9 +594,8 @@ MultiLaser::AdvanceSliceMG (amrex::Real dt, int step)
                     rhs =
                         + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
                         + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2
-                        - 4._rt/(c*c*dt*dt)*an00j00
                         - lapA
-                        + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
+                        + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
                     if (do_avg_rhs) {
                         rhs += arr(i, j, chi) * anm1j00;
                     } else {
@@ -762,10 +761,9 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
                     rhs =
                         + 4._rt/(c*dt*dz)*(-anp1jp1+anm1jp1)*exp1
                         + 1._rt/(c*dt*dz)*(+anp1jp2-anm1jp2)*exp2
-                        - 4._rt/(c*c*dt*dt)*an00j00
                         + 2._rt * arr(i, j, chi) * an00j00
                         - lapA
-                        + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt) + 2._rt/(c*c*dt*dt) + I*2._rt*k0/(c*dt) ) * anm1j00;
+                        + ( -3._rt/(c*dt*dz) + 2._rt*I*djn/(c*dt)  + I*2._rt*k0/(c*dt) ) * anm1j00;
                 }
                 rhs_arr(i,j,0) = rhs;
             });
@@ -780,7 +778,7 @@ MultiLaser::AdvanceSliceFFT (const amrex::Real dt, int step)
         // For the sake of simplicity, we evaluate it on-axis only.
         const Complex acoeff =
             step == 0 ? 6._rt/(c*dt*dz) - I * 4._rt * ( k0 + djn ) / (c*dt) :
-             3._rt/(c*dt*dz) + 2._rt/(c*c*dt*dt) - I * 2._rt * ( k0 + djn ) / (c*dt);
+             3._rt/(c*dt*dz) - I * 2._rt * ( k0 + djn ) / (c*dt);
         amrex::ParallelFor(
             to2D(bx),
             [=] AMREX_GPU_DEVICE(int i, int j) noexcept {
