@@ -230,7 +230,7 @@ AdvanceBeamParticlesSlice (
                         }
                     }
                 }
-
+                Ezp = 10e9;
                 if (c_use_external_fields.value) {
                     ApplyExternalField(xp, yp, zp, time, clight, ExmByp, EypBxp, Ezp, Bxp, Byp, Bzp,
                         external_fields);
