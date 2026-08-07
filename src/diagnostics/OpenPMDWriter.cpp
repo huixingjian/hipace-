@@ -41,10 +41,8 @@ namespace utils {
     getUnitDimension ( std::string const & record_name )
     {
 
-        if( record_name == "position" ) return {
-            {openPMD::UnitDimension::L,  1.}
-        };
-        else if( record_name == "positionOffset" ) return {
+        if( (record_name == "position") ||
+            (record_name == "positionOffset")) return {
             {openPMD::UnitDimension::L,  1.}
         };
         else if( record_name == "momentum" ) return {
@@ -97,14 +95,18 @@ OpenPMDWriter::ReadParameters ()
 
     // set default output path according to backend
     if (m_openpmd_backend == "h5") {
-        m_file_prefix = "diags/hdf5";
+        m_file_prefix = Hipace::m_output_folder + "/hdf5";
     } else if (m_openpmd_backend == "bp") {
-        m_file_prefix = "diags/adios2";
+        m_file_prefix = Hipace::m_output_folder + "/adios2";
     } else if (m_openpmd_backend == "json") {
-        m_file_prefix = "diags/json";
+        m_file_prefix = Hipace::m_output_folder + "/json";
     }
     // overwrite output path by choice of the user
-    queryWithParser(pp, "file_prefix", m_file_prefix);
+    const bool set_file_prefix = queryWithParser(pp, "file_prefix", m_file_prefix);
+    if (set_file_prefix) {
+        amrex::Print() <<
+            "It is recommended to use hipace.output_folder instead of hipace.file_prefix\n";
+    }
 
     // temporary workaround until openPMD-viewer gets fixed
     amrex::ParmParse ppd("diagnostic");
@@ -125,7 +127,9 @@ OpenPMDWriter::InitDiagnostics ()
     m_outputSeries = std::make_unique< openPMD::Series >(
         filename, openPMD::Access::CREATE);
 
-    // TODO: meta-data: author, mesh path, extensions, software
+    m_outputSeries->setSoftware("HiPACE++", Hipace::Version());
+
+    // TODO: meta-data: author, mesh path, extensions
 }
 
 void
@@ -142,14 +146,14 @@ OpenPMDWriter::WriteBeamDiagnostics (
 
 void
 OpenPMDWriter::WriteFieldDiagnostics (
-    const amrex::Vector<FieldDiagnosticData>& field_diag,
+    const amrex::Vector<DiagnosticData>& field_diag,
     const MultiLaser& a_multi_laser, const amrex::Real physical_time, const int output_step)
 {
     openPMD::Iteration iteration = m_outputSeries->iterations[output_step];
     iteration.setTime(physical_time);
 
     for (const auto& fd : field_diag) {
-        if (fd.m_has_field) {
+        if (fd.m_has_output) {
             WriteFieldData(fd, a_multi_laser, iteration);
         }
     }
@@ -157,7 +161,7 @@ OpenPMDWriter::WriteFieldDiagnostics (
 
 void
 OpenPMDWriter::WriteFieldData (
-    const FieldDiagnosticData& fd, const MultiLaser& a_multi_laser, openPMD::Iteration& iteration)
+    const DiagnosticData& fd, const MultiLaser& a_multi_laser, openPMD::Iteration& iteration)
 {
     HIPACE_PROFILE("OpenPMDWriter::WriteFieldData()");
 
@@ -167,8 +171,6 @@ OpenPMDWriter::WriteFieldData (
     // loop over field components
     for ( int icomp = 0; icomp < fd.m_nfields; ++icomp )
     {
-        const bool is_laser_comp = fd.m_base_geom_type == FieldDiagnosticData::geom_type::laser;
-
         //                      "B"                "x" (todo)
         //                      "Bx"               ""  (just for now)
         openPMD::Mesh field = meshes[fd.m_comps_output[icomp]];
@@ -178,54 +180,68 @@ OpenPMDWriter::WriteFieldData (
         field.setDataOrder(openPMD::Mesh::DataOrder::C);
 
         const amrex::Geometry& geom = fd.m_geom_io;
-        const amrex::Box data_box = is_laser_comp ? fd.m_F_laser.box() : fd.m_F.box();
 
         // node staggering, labels, spacing and offsets
         // convert AMReX Fortran index order to C order
-        auto relative_cell_pos = utils::getRelativeCellPosition(data_box);
-        std::vector< std::string > axisLabels {"z", "y", "x"};
+        auto relative_cell_pos = utils::getRelativeCellPosition(geom.Domain());
         auto dCells = utils::getReversedVec(geom.CellSize()); // dz, dy, dx
         auto offWindow = utils::getReversedVec(geom.ProbLo());
         openPMD::Extent global_size = utils::getReversedVec(geom.Domain().size());
-        const amrex::IntVect box_offset {0, 0, data_box.smallEnd(2) - geom.Domain().smallEnd(2)};
+        const amrex::IntVect box_offset {0, 0, 0};
         openPMD::Offset chunk_offset = utils::getReversedVec(box_offset);
-        openPMD::Extent chunk_size = utils::getReversedVec(data_box.size());
-        if (fd.m_slice_dir >= 0) {
-            const int remove_dir = 2 - fd.m_slice_dir;
-            // User requested slice IO
-            // remove the slicing direction in position, label, resolution, offset
-            relative_cell_pos.erase(relative_cell_pos.begin() + remove_dir);
-            axisLabels.erase(axisLabels.begin() + remove_dir);
-            dCells.erase(dCells.begin() + remove_dir);
-            offWindow.erase(offWindow.begin() + remove_dir);
-            global_size.erase(global_size.begin() + remove_dir);
-            chunk_offset.erase(chunk_offset.begin() + remove_dir);
-            chunk_size.erase(chunk_size.begin() + remove_dir);
+        openPMD::Extent chunk_size = utils::getReversedVec(geom.Domain().size());
+
+        for (int i=0; i<3; ++i) {
+            if (fd.m_remove_axis[i]) {
+                const int remove_dir = 2 - i;
+                // User requested slice IO
+                // remove the slicing direction in position, label, resolution, offset
+                // Remove entries starting from the back of the vectors
+                relative_cell_pos.erase(relative_cell_pos.begin() + remove_dir);
+                dCells.erase(dCells.begin() + remove_dir);
+                offWindow.erase(offWindow.begin() + remove_dir);
+                global_size.erase(global_size.begin() + remove_dir);
+                chunk_offset.erase(chunk_offset.begin() + remove_dir);
+                chunk_size.erase(chunk_size.begin() + remove_dir);
+            }
         }
+
+        std::vector<std::string> axisLabels;
+        for (int i=fd.m_axis_labels.size()-1; i>=0; --i) {
+            axisLabels.push_back(fd.m_axis_labels[i]);
+        }
+
         field_comp.setPosition(relative_cell_pos);
         field.setAxisLabels(axisLabels);
         field.setGridSpacing(dCells);
         field.setGridGlobalOffset(offWindow);
 
-        openPMD::Datatype datatype = is_laser_comp ?
+        openPMD::Datatype datatype = fd.m_base_diag_type == DiagnosticData::diag_type::laser ?
             openPMD::determineDatatype< std::complex<amrex::Real> >() :
             openPMD::determineDatatype< amrex::Real >();
         // set data type and global size of the simulation
         openPMD::Dataset dataset(datatype, global_size);
         field_comp.resetDataset(dataset);
 
-        if (is_laser_comp) {
-            // set laser attributes and store laser
-            field.setAttribute("envelopeField", "normalized_vector_potential");
-            field.setAttribute("angularFrequency",
-                double(2.) * MathConst::pi * PhysConstSI::c / a_multi_laser.GetLambda0());
-            std::vector< std::complex<double> > polarization {{1., 0.}, {0., 0.}};
-            field.setAttribute("polarization", polarization);
-            field_comp.storeChunkRaw(
-                reinterpret_cast<const std::complex<amrex::Real>*>(fd.m_F_laser.dataPtr()),
-                chunk_offset, chunk_size);
-        } else {
-            field_comp.storeChunkRaw(fd.m_F.dataPtr(icomp), chunk_offset, chunk_size);
+        switch (fd.m_base_diag_type) {
+            case DiagnosticData::diag_type::field:
+            case DiagnosticData::diag_type::histogram:
+                field_comp.storeChunkRaw(fd.m_F_real.dataPtr(icomp), chunk_offset, chunk_size);
+                break;
+            case DiagnosticData::diag_type::laser:
+                // set laser attributes and store laser
+                if (fd.m_comps_output[icomp] == "laserEnvelope") {
+                    field.setAttribute("envelopeField", "normalized_vector_potential");
+                    field.setAttribute("angularFrequency",
+                        double(2.) * MathConst::pi * PhysConstSI::c / a_multi_laser.GetLambda0());
+                    std::vector< std::complex<double> > polarization {{1., 0.}, {0., 0.}};
+                    field.setAttribute("polarization", polarization);
+                }
+                field_comp.storeChunkRaw(
+                    reinterpret_cast<const std::complex<amrex::Real>*>(
+                        fd.m_F_complex.dataPtr(icomp)),
+                    chunk_offset, chunk_size);
+                break;
         }
     }
 }
@@ -244,8 +260,14 @@ OpenPMDWriter::InitBeamData (MultiBeam& beams, const amrex::Vector< std::string 
         std::string name = beams.get_name(ibeam);
         if(std::find(beamnames.begin(), beamnames.end(), name) ==  beamnames.end() ) continue;
 
+        auto& beam = beams.getBeam(ibeam);
+
         // initialize beam IO on first slice
-        const uint64_t np_total = beams.getBeam(ibeam).getTotalNumParticles();
+        uint64_t np_total = beam.getTotalNumParticles();
+
+        if (beam.m_output_ratio > 1) {
+            np_total = (np_total + beam.m_output_ratio - 1) / beam.m_output_ratio;
+        }
 
         m_uint64_beam_data[ibeam].resize(m_int_names.size());
 
@@ -253,7 +275,7 @@ OpenPMDWriter::InitBeamData (MultiBeam& beams, const amrex::Vector< std::string 
             m_uint64_beam_data[ibeam][idx].resize(np_total);
         }
 
-        if (beams.getBeam(ibeam).m_do_spin_tracking) {
+        if (beam.m_do_spin_tracking) {
             m_real_beam_data[ibeam].resize(m_real_names.size() + m_real_names_spin.size());
         } else {
             m_real_beam_data[ibeam].resize(m_real_names.size());
@@ -347,11 +369,21 @@ OpenPMDWriter::CopyBeams (MultiBeam& beams, const amrex::Vector< std::string > b
 
         auto& beam = beams.getBeam(ibeam);
 
-        const uint64_t np = beam.getNumParticles(WhichBeamSlice::This);
+        uint64_t np = beam.getNumParticles(WhichBeamSlice::This);
+
+        const int output_ratio = beam.m_output_ratio;
+
+        if (output_ratio > 1) {
+            np = amrex::partitionParticles(beam.getBeamSlice(WhichBeamSlice::This),
+                [=] AMREX_GPU_DEVICE (auto& ptd, int i) {
+                    return i < int(np) && ptd.idcpu(i) % output_ratio == 0;
+                }
+            );
+        }
 
         if (np != 0) {
             // copy data from GPU to IO buffer
-            auto& soa = beam.getBeamSlice(WhichBeamSlice::This).GetStructOfArrays();
+            auto& slice = beam.getBeamSlice(WhichBeamSlice::This);
 
             for (std::size_t idx=0; idx<m_uint64_beam_data[ibeam].size(); idx++) {
                 const auto old_size = m_uint64_beam_data[ibeam][idx].size();
@@ -361,13 +393,13 @@ OpenPMDWriter::CopyBeams (MultiBeam& beams, const amrex::Vector< std::string > b
                     );
                 }
                 amrex::Gpu::copyAsync(amrex::Gpu::deviceToHost,
-                    soa.GetIdCPUData().begin(),
-                    soa.GetIdCPUData().begin() + np,
+                    slice.GetIdCPUData().begin(),
+                    slice.GetIdCPUData().begin() + np,
                     m_uint64_beam_data[ibeam][idx].data() + m_offset[ibeam]);
             }
 
             AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-                int(m_real_beam_data[ibeam].size()) == soa.NumRealComps(),
+                int(m_real_beam_data[ibeam].size()) == slice.NumRealComps(),
                 "List of real names in openPMD Writer class does not match the beam");
 
             for (std::size_t idx=0; idx<m_real_beam_data[ibeam].size(); idx++) {
@@ -378,8 +410,8 @@ OpenPMDWriter::CopyBeams (MultiBeam& beams, const amrex::Vector< std::string > b
                     );
                 }
                 amrex::Gpu::copyAsync(amrex::Gpu::deviceToHost,
-                    soa.GetRealData(idx).begin(),
-                    soa.GetRealData(idx).begin() + np,
+                    slice.GetRealData(idx).begin(),
+                    slice.GetRealData(idx).begin() + np,
                     m_real_beam_data[ibeam][idx].data() + m_offset[ibeam]);
             }
         }
@@ -417,8 +449,8 @@ OpenPMDWriter::SetupPos (openPMD::ParticleSpecies& currSpecies, BeamParticleCont
     // calculate the multiplier to convert from Hipace to SI units
     double hipace_to_SI_pos = 1.;
     double hipace_to_SI_weight = 1.;
-    double hipace_to_SI_momentum = beam.m_mass;
-    double hipace_to_unitSI_momentum = beam.m_mass;
+    double hipace_to_SI_momentum = beam.m_mass * phys_const_SI.c;
+    double hipace_to_unitSI_momentum = beam.m_mass * phys_const_SI.c;
     double hipace_to_SI_charge = 1.;
     double hipace_to_SI_mass = 1.;
 

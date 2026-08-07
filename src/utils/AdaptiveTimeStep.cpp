@@ -89,9 +89,6 @@ AdaptiveTimeStep::GatherMinUzSlice (MultiBeam& beams, const bool initial)
 
     HIPACE_PROFILE("AdaptiveTimeStep::GatherMinUzSlice()");
 
-    const PhysConst phys_const = get_phys_const();
-    const amrex::Real clightinv = 1._rt/phys_const.c;
-
     const int nbeams = beams.get_nbeams();
 
     for (int ibeam = 0; ibeam < nbeams; ibeam++) {
@@ -118,17 +115,17 @@ AdaptiveTimeStep::GatherMinUzSlice (MultiBeam& beams, const bool initial)
         // Extract particle properties
         // For momenta and weights
         if (initial) {
-            const auto& soa = beam.getBeamInitSlice().GetStructOfArrays();
+            const auto& slice = beam.getBeamInitSlice();
             num_particles = beam.getBeamInitSlice().size();
-            uzp = soa.GetRealData(BeamIdx::uz).data();
-            wp = soa.GetRealData(BeamIdx::w).data();
-            idcpup = soa.GetIdCPUData().data();
+            uzp = slice.GetRealData(BeamIdx::uz).data();
+            wp = slice.GetRealData(BeamIdx::w).data();
+            idcpup = slice.GetIdCPUData().data();
         } else {
-            const auto& soa = beam.getBeamSlice(WhichBeamSlice::This).GetStructOfArrays();
+            const auto& slice = beam.getBeamSlice(WhichBeamSlice::This);
             num_particles = beam.getNumParticles(WhichBeamSlice::This);
-            uzp = soa.GetRealData(BeamIdx::uz).data();
-            wp = soa.GetRealData(BeamIdx::w).data();
-            idcpup = soa.GetIdCPUData().data();
+            uzp = slice.GetRealData(BeamIdx::uz).data();
+            wp = slice.GetRealData(BeamIdx::w).data();
+            idcpup = slice.GetIdCPUData().data();
         }
 
         amrex::ReduceOps<amrex::ReduceOpSum, amrex::ReduceOpSum,
@@ -145,9 +142,9 @@ AdaptiveTimeStep::GatherMinUzSlice (MultiBeam& beams, const bool initial)
                 };
                 return {
                     wp[ip],
-                    wp[ip] * uzp[ip] * clightinv,
-                    wp[ip] * uzp[ip] * uzp[ip] * clightinv * clightinv,
-                    uzp[ip] * clightinv
+                    wp[ip] * uzp[ip],
+                    wp[ip] * uzp[ip] * uzp[ip],
+                    uzp[ip]
                 };
             });
 
@@ -295,10 +292,10 @@ AdaptiveTimeStep::GatherMinAccSlice (MultiBeam& beams, const amrex::Geometry& ge
         amrex::Real const x_pos_offset = GetPosOffset(0, geom, slice_fab.box());
         const amrex::Real y_pos_offset = GetPosOffset(1, geom, slice_fab.box());
 
-        auto const& soa = beam.getBeamSlice(WhichBeamSlice::This).GetStructOfArrays();
-        const auto pos_x = soa.GetRealData(BeamIdx::x).data();
-        const auto pos_y = soa.GetRealData(BeamIdx::y).data();
-        const auto idcpup = soa.GetIdCPUData().data();
+        auto const& slice = beam.getBeamSlice(WhichBeamSlice::This);
+        const auto pos_x = slice.GetRealData(BeamIdx::x).data();
+        const auto pos_y = slice.GetRealData(BeamIdx::y).data();
+        const auto idcpup = slice.GetIdCPUData().data();
 
         reduce_op.eval(beam.getNumParticles(WhichBeamSlice::This), reduce_data,
             [=] AMREX_GPU_DEVICE (long ip) noexcept -> ReduceTuple

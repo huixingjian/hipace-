@@ -12,6 +12,7 @@
 #include "particles/profiles/GetInitialDensity.H"
 #include "particles/profiles/GetInitialMomentum.H"
 #include "utils/Parser.H"
+#include "utils/IOUtil.H"
 #include "particles/sorting/BoxSort.H"
 #include <AMReX_AmrParticles.H>
 #include <AMReX_Particles.H>
@@ -27,7 +28,8 @@ struct BeamIdx
         w,          // weight
         ux, uy, uz, // momentum
         real_nattribs_in_buffer,
-        real_nattribs=real_nattribs_in_buffer
+        real_nattribs=real_nattribs_in_buffer,
+        sx=real_nattribs, sy, sz
     };
     enum {
         // no extra components stored in MultiBuffer, besides 64bit idcpu
@@ -44,25 +46,7 @@ struct WhichBeamSlice {
     enum beam_slice : int { Next=0, This, N };
 };
 
-using BeamTile = amrex::ParticleTile<
-        amrex::SoAParticle<
-            BeamIdx::real_nattribs,
-            BeamIdx::int_nattribs
-        >,
-        BeamIdx::real_nattribs,
-        BeamIdx::int_nattribs
-    >;
-
-using BeamTileInit = amrex::ParticleTile<
-        amrex::SoAParticle<
-            BeamIdx::real_nattribs_in_buffer,
-            BeamIdx::int_nattribs_in_buffer
-        >,
-        BeamIdx::real_nattribs_in_buffer,
-        BeamIdx::int_nattribs_in_buffer,
-        // use PolymorphicArenaAllocator to either use Pinned or Device memory at runtime
-        amrex::PolymorphicArenaAllocator
-    >;
+using BeamTile = amrex::ParticleTileRT<amrex::Real, int>;
 
 /** \brief Container for particles of 1 beam species. */
 class BeamParticleContainer
@@ -122,6 +106,9 @@ public:
                                   const bool species_specified);
 #endif
 
+    /** Initialize a beam from a list in the input script */
+    void InitBeamFromList3D ();
+
     /** Compute reduced beam diagnostics of current slice, store in member variable
      * \param[in] islice current slice, on which diags are computed.
      */
@@ -180,7 +167,7 @@ public:
 
     void resize (int which_slice, int num_particles, int num_slipped_particles);
 
-    BeamTileInit& getBeamInitSlice () {
+    BeamTile& getBeamInitSlice () {
         return m_init_slice;
     }
 
@@ -210,7 +197,7 @@ private:
     std::array<BeamTile, WhichBeamSlice::N> m_slices {};
     std::array<int, WhichBeamSlice::N> m_num_particles_without_slipped {};
     std::array<int, WhichBeamSlice::N> m_num_particles_with_slipped {};
-    BeamTileInit m_init_slice {};
+    BeamTile m_init_slice {};
     BoxSorter m_init_sorter;
     uint64_t m_total_num_particles = 0;
 public:
@@ -225,7 +212,7 @@ public:
     bool m_initialize_on_cpu {false};
     /** How often the insitu beam diagnostics should be computed and written
      * Default is 0, meaning no output */
-    int m_insitu_period {0};
+    utils::DiagPeriod m_insitu_period {"0"};
     /** Whether external fields should be used for this beam */
     bool m_use_external_fields = false;
     /** External field functions for Ex Ey Ez Bx By Bz */
@@ -238,6 +225,8 @@ public:
     amrex::RealVect m_initial_spin = {1, 0, 0,};
     /** The anomalous magnetic moment */
     amrex::Real m_spin_anom = 0.00115965218128;
+    /** ratio of beam particles that are written to the openPMD output */
+    int m_output_ratio = 1;
 private:
     std::string m_name; /**< name of the species */
     /** injection type, fixed_width or fixed_ppc */
@@ -315,6 +304,11 @@ private:
     amrex::Array<std::string, AMREX_SPACEDIM> m_file_coordinates_xyz;
     int m_num_iteration {0}; /**< the iteration of the openPMD beam */
     std::string m_species_name; /**< the name of the particle species in the beam file */
+    amrex::RealVect m_position_offset {0, 0, 0}; /**< add an offset to the position of the beam */
+
+    // from list
+
+    amrex::Long m_num_particles_list; /**< Number of particles in input list */
 
     // insitu:
 
@@ -332,7 +326,7 @@ private:
     /** Sum of all per-slice int beam properties */
     amrex::Vector<int> m_insitu_sum_idata;
     /** Prefix/path for the output files */
-    std::string m_insitu_file_prefix = "diags/insitu";
+    std::string m_insitu_file_prefix = "";
 
     // spin insitu:
 

@@ -13,6 +13,7 @@
 #include "diagnostics/Diagnostic.H"
 #include "laser/MultiLaser.H"
 #include "utils/GPUUtil.H"
+#include "utils/IOUtil.H"
 
 #include <AMReX_MultiFab.H>
 #include <AMReX_Vector.H>
@@ -30,14 +31,11 @@ struct WhichSlice {
 
 struct assert_map : std::map<std::string, int> {
     int operator[] (const std::string& str) const {
-        if (count(str)==0) {
-            amrex::ErrorStream() << "Component '"+str+"' is not allocated\nFields allocated:";
-            for (auto& [alloc_str, num] : *this) {
-                amrex::ErrorStream() << " '" << alloc_str << "' (" << num << "),";
-            }
-            amrex::ErrorStream() << "\n";
-            AMREX_ALWAYS_ASSERT(count(str)!=0);
-        }
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
+            count(str) != 0,
+             "Component '" + str + "' is not allocated\n"
+             "Fields allocated: " + amrex::ToString(*this) + "\n"
+        );
         return at(str);
     }
 
@@ -107,7 +105,8 @@ public:
     /** get function for the 2D slices (const version)
      * \param[in] lev MR level
      */
-    const amrex::MultiFab& getSlices (int lev) const {return m_slices[lev]; }
+    [[nodiscard]] const amrex::MultiFab&
+    getSlices (int lev) const {return m_slices[lev]; }
     /** get amrex::MultiFab of a field in a slice
      * \param[in] lev MR level
      * \param[in] islice slice index
@@ -130,7 +129,7 @@ public:
      * \param[in] field_geom main field geometry
      * \param[in] multi_laser MultiLaser object
      */
-     void Copy (const int current_N_level, const int i_slice, FieldDiagnosticData& fd,
+     void Copy (const int current_N_level, const int i_slice, DiagnosticData& fd,
                 const amrex::Vector<amrex::Geometry>& field_geom, MultiLaser& multi_laser);
 
      /** \brief Initialize all required fields to zero and interpolate from lev-1 to lev if needed
@@ -274,24 +273,22 @@ public:
 
     /** Compute in-situ field diagnostics of current slice, store in member variable
      * \param[in] step current time step
-     * \param[in] time physical time
      * \param[in] islice current slice, on which diags are computed.
      * \param[in] geom3D Geometry of the problem
-     * \param[in] max_step maximum time step of simulation
-     * \param[in] max_time maximum time of simulation
+     * \param[in] time physical time at the given step
+     * \param[in] is_last_step if this is the last time step of the simulation
      */
-    void InSituComputeDiags (int step, amrex::Real time, int islice, const amrex::Geometry& geom3D,
-                             int max_step, amrex::Real max_time);
+    void InSituComputeDiags (int step, int islice, const amrex::Geometry& geom3D,
+                             amrex::Real time, bool is_last_step);
 
     /** Dump in-situ reduced diagnostics to file.
      * \param[in] step current time step
      * \param[in] time physical time
      * \param[in] geom3D Geometry object for the whole domain
-     * \param[in] max_step maximum time step of simulation
-     * \param[in] max_time maximum time of simulation
+     * \param[in] is_last_step if this is the last time step of the simulation
      */
     void InSituWriteToFile (int step, amrex::Real time, const amrex::Geometry& geom3D,
-                            int max_step, amrex::Real max_time);
+                            bool is_last_step);
 
     /** \brief set all selected fields to a value
      *
@@ -463,14 +460,10 @@ public:
 private:
     /** Vector over levels of all required fields to compute current slice */
     amrex::Vector<amrex::MultiFab> m_slices;
-    /** Type of poisson solver to use */
-    std::string m_poisson_solver_str = "";
     /** Class to handle transverse FFT Poisson solver on 1 slice */
     amrex::Vector<std::unique_ptr<FFTPoissonSolver>> m_poisson_solver;
     /** Stores temporary values for z interpolation in Fields::Copy */
-    amrex::Gpu::DeviceVector<amrex::Real> m_rel_z_vec;
-    /** Stores temporary values for z interpolation in Fields::Copy on the CPU */
-    amrex::Gpu::PinnedVector<amrex::Real> m_rel_z_vec_cpu;
+    amrex::Gpu::Buffer<amrex::Real> m_rel_z_vec;
     /** If the explicit solver is being used */
     bool m_explicit = false;
     /** If any plasma species has a neutralizing background */
@@ -481,13 +474,13 @@ private:
     static constexpr int m_insitu_nrp = 10;
     /** How often the insitu field diagnostics should be computed and written
      * Default is 0, meaning no output */
-    int m_insitu_period {0};
+    utils::DiagPeriod m_insitu_period {"0"};
     /** All per-slice real field properties */
     amrex::Vector<amrex::Real> m_insitu_rdata;
     /** Sum of all per-slice real field properties */
     amrex::Vector<amrex::Real> m_insitu_sum_rdata;
     /** Prefix/path for the output files */
-    std::string m_insitu_file_prefix = "diags/field_insitu";
+    std::string m_insitu_file_prefix = "";
 };
 
 /** Helper struct to check whether a point is within a valid domain. */

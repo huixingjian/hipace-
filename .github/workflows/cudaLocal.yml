@@ -27,7 +27,7 @@ jobs:
     env:
       CXXFLAGS: "-Werror"
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Build & Install
       run: |
@@ -48,4 +48,5 @@ jobs:
         python3 -m pip install --upgrade pip --user
         python3 -m pip install --upgrade matplotlib numpy scipy openpmd-viewer openpmd-api --user
         python3 -m pip install git+https://github.com/LASY-org/lasy.git@development
+        python3 -m pip install -U -e ./tools
         ctest --test-dir build --output-on-failure

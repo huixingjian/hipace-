@@ -81,8 +81,7 @@ DepositCurrentSlice (BeamParticleContainer& beam, Fields& fields,
         }
     }
 
-    const amrex::Real clightinv = 1.0_rt/(phys_const.c);
-    const amrex::Real clightsq = 1.0_rt/(phys_const.c*phys_const.c);
+    const amrex::Real clight = phys_const.c;
     const amrex::Real q = beam.m_charge;
 
     amrex::AnyCTO(
@@ -118,17 +117,12 @@ DepositCurrentSlice (BeamParticleContainer& beam, Fields& fields,
         // return the lowest cell index that the particle deposits into
         [=] AMREX_GPU_DEVICE (int ip, auto ptd, auto depos_order) -> amrex::IntVectND<2>
         {
-            // --- Compute shape factors
-            // x direction
             const amrex::Real xmid = (ptd.pos(0, ip) - x_pos_offset)*dxi;
-            // i_cell leftmost cell in x that the particle touches. sx_cell shape factor along x
-            amrex::Real sx_cell[depos_order + 1];
-            const int i = compute_shape_factor<depos_order>(sx_cell, xmid);
-
-            // y direction
             const amrex::Real ymid = (ptd.pos(1, ip) - y_pos_offset)*dyi;
-            amrex::Real sy_cell[depos_order + 1];
-            const int j = compute_shape_factor<depos_order>(sy_cell, ymid);
+
+            // --- Compute shape factors
+            auto [shape_y, j] = shape_factor<depos_order>(ymid, 0);
+            auto [shape_x, i] = shape_factor<depos_order>(xmid, 0);
 
             return {i, j};
         },
@@ -143,52 +137,42 @@ DepositCurrentSlice (BeamParticleContainer& beam, Fields& fields,
             const amrex::Real uy = ptd.rdata(BeamIdx::uy)[ip];
             const amrex::Real uz = ptd.rdata(BeamIdx::uz)[ip];
 
-            const amrex::Real gaminv = 1.0_rt/std::sqrt(1.0_rt + ux*ux*clightsq
-                                                         + uy*uy*clightsq
-                                                         + uz*uz*clightsq);
+            const amrex::Real gaminv = 1.0_rt/std::sqrt(1.0_rt + ux*ux + uy*uy + uz*uz);
             const amrex::Real wq = q*ptd.rdata(BeamIdx::w)[ip]*invvol;
 
-            const amrex::Real vx = ux*gaminv;
-            const amrex::Real vy = uy*gaminv;
-            const amrex::Real vz = uz*gaminv;
+            const amrex::Real betax = ux*gaminv;
+            const amrex::Real betay = uy*gaminv;
+            const amrex::Real betaz = uz*gaminv;
             // wqx, wqy wqz are particle current in each direction
-            const amrex::Real wqx = wq*vx;
-            const amrex::Real wqy = wq*vy;
-            const amrex::Real wqz = wq*vz;
-            const amrex::Real wqrhomjz = wq*(1._rt-vz*clightinv);
+            const amrex::Real wqx = clight*wq*betax;
+            const amrex::Real wqy = clight*wq*betay;
+            const amrex::Real wqz = clight*wq*betaz;
+            const amrex::Real wqrhomjz = wq*(1._rt-betaz);
 
-            // --- Compute shape factors
-            // x direction
             const amrex::Real xmid = (ptd.pos(0, ip) - x_pos_offset)*dxi;
-            // i_cell leftmost cell in x that the particle touches. sx_cell shape factor along x
-            amrex::Real sx_cell[depos_order + 1];
-            const int i_cell = compute_shape_factor<depos_order>(sx_cell, xmid);
-
-            // y direction
             const amrex::Real ymid = (ptd.pos(1, ip) - y_pos_offset)*dyi;
-            amrex::Real sy_cell[depos_order + 1];
-            const int j_cell = compute_shape_factor<depos_order>(sy_cell, ymid);
 
             // Deposit current into jx, jy, jz, rhomjz
             for (int iy=0; iy<=depos_order; iy++){
                 for (int ix=0; ix<=depos_order; ix++){
+
+                    // --- Compute shape factors
+                    auto [shape_y, j] = shape_factor<depos_order>(ymid, iy);
+                    auto [shape_x, i] = shape_factor<depos_order>(xmid, ix);
+
                     if (depos_idx[0] != -1) { // do_beam_jx_jy_deposition
                         amrex::Gpu::Atomic::Add(
-                            arr.ptr(i_cell+ix, j_cell+iy, depos_idx[0]),
-                            sx_cell[ix]*sy_cell[iy]*wqx);
+                            arr.ptr(i, j, depos_idx[0]), shape_x * shape_y * wqx);
                         amrex::Gpu::Atomic::Add(
-                            arr.ptr(i_cell+ix, j_cell+iy, depos_idx[1]),
-                            sx_cell[ix]*sy_cell[iy]*wqy);
+                            arr.ptr(i, j, depos_idx[1]), shape_x * shape_y * wqy);
                     }
                     if (depos_idx[2] != -1) { // do_beam_jz_deposition
                         amrex::Gpu::Atomic::Add(
-                            arr.ptr(i_cell+ix, j_cell+iy, depos_idx[2]),
-                            sx_cell[ix]*sy_cell[iy]*wqz);
+                            arr.ptr(i, j, depos_idx[2]), shape_x * shape_y * wqz);
                     }
                     if (depos_idx[3] != -1) { // do_beam_rhomjz_deposition
                         amrex::Gpu::Atomic::Add(
-                            arr.ptr(i_cell+ix, j_cell+iy, depos_idx[3]),
-                            sx_cell[ix]*sy_cell[iy]*wqrhomjz);
+                            arr.ptr(i, j, depos_idx[3]), shape_x * shape_y * wqrhomjz);
                     }
                 }
             }

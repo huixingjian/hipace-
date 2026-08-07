@@ -63,9 +63,9 @@ std::string rocfftErrorToString (const rocfft_status& err) {
 }
 
 void assert_rocfft_status (std::string const& name, const rocfft_status& status) {
-    if (status != rocfft_status_success) {
-        amrex::Abort(name + " failed! Error: " + rocfftErrorToString(status));
-    }
+    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(status == rocfft_status_success,
+        name + " failed! Error: " + rocfftErrorToString(status)
+    );
 }
 
 std::size_t AnyFFT::Initialize (FFTType type, int nx, int ny) {
@@ -107,11 +107,19 @@ std::size_t AnyFFT::Initialize (FFTType type, int nx, int ny) {
             lengths[1] = ny;
             number_of_transforms = 1;
             break;
-        case FFTType::R2R_2D:
+        case FFTType::R2R_2D_DST1:
+        case FFTType::R2R_2D_DST2:
+        case FFTType::R2R_2D_DST3:
             amrex::Abort("R2R FFT not supported by rocfft");
             return 0;
         case FFTType::C2R_1D_batched:
             transform_type = rocfft_transform_type_real_inverse;
+            dimensions = 1;
+            lengths[0] = nx;
+            number_of_transforms = ny;
+            break;
+        case FFTType::R2C_1D_batched:
+            transform_type = rocfft_transform_type_real_forward;
             dimensions = 1;
             lengths[0] = nx;
             number_of_transforms = ny;

@@ -120,9 +120,9 @@ ExplicitDeposition (PlasmaParticleContainer& plasma, Fields& fields,
                 const amrex::Real ymid = (yp - y_pos_offset) * dy_inv;
 
                 auto [shape_y, shape_dy, j] =
-                    single_derivative_shape_factor<derivative_type, depos_order>(ymid, 0);
+                    derivative_shape_factor<derivative_type, depos_order>(ymid, 0);
                 auto [shape_x, shape_dx, i] =
-                    single_derivative_shape_factor<derivative_type, depos_order>(xmid, 0);
+                    derivative_shape_factor<derivative_type, depos_order>(xmid, 0);
 
                 if constexpr (use_laser) {
                     // need extra cells for gathering the laser
@@ -150,8 +150,8 @@ ExplicitDeposition (PlasmaParticleContainer& plasma, Fields& fields,
                 const amrex::Real psi_inv = 1._rt/ptd.rdata(PlasmaIdx::psi)[ip];
                 const amrex::Real xp = ptd.pos(0, ip);
                 const amrex::Real yp = ptd.pos(1, ip);
-                const amrex::Real vx = ptd.rdata(PlasmaIdx::ux)[ip] * psi_inv * clight_inv;
-                const amrex::Real vy = ptd.rdata(PlasmaIdx::uy)[ip] * psi_inv * clight_inv;
+                const amrex::Real vx = ptd.rdata(PlasmaIdx::ux)[ip] * psi_inv;
+                const amrex::Real vy = ptd.rdata(PlasmaIdx::uy)[ip] * psi_inv;
 
                 // Rename variable for NVCC lambda capture to work
                 amrex::Real q_invvol_mu0 = charge_invvol_mu0;
@@ -176,20 +176,9 @@ ExplicitDeposition (PlasmaParticleContainer& plasma, Fields& fields,
                 }
 
                 // calculate gamma/psi for plasma particles
-                const amrex::Real gamma_psi = 0.5_rt * (
-                    (1._rt + 0.5_rt * Aabssqp) * psi_inv * psi_inv
-                    + vx * vx
-                    + vy * vy
-                    + 1._rt
-                );
+                const amrex::Real gamma_psi = plasma_gamma_psi_v(vx, vy, psi_inv, Aabssqp);
 
-#ifdef AMREX_USE_GPU
-#pragma unroll
-#endif
                 for (int iy=0; iy <= depos_order+derivative_type; ++iy) {
-#ifdef AMREX_USE_GPU
-#pragma unroll
-#endif
                     for (int ix=0; ix <= depos_order+derivative_type; ++ix) {
 
                         if constexpr (derivative_type == 2) {
@@ -200,9 +189,9 @@ ExplicitDeposition (PlasmaParticleContainer& plasma, Fields& fields,
                         }
 
                         auto [shape_y, shape_dy, j] =
-                            single_derivative_shape_factor<derivative_type, depos_order>(ymid, iy);
+                            derivative_shape_factor<derivative_type, depos_order>(ymid, iy);
                         auto [shape_x, shape_dx, i] =
-                            single_derivative_shape_factor<derivative_type, depos_order>(xmid, ix);
+                            derivative_shape_factor<derivative_type, depos_order>(xmid, ix);
 
                         // get fields per cell instead of gathering them to avoid blurring
                         const amrex::Real Bz_v = arr(i, j, cache_idx[0]);
