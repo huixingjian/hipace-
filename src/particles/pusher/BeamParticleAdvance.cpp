@@ -37,7 +37,7 @@ void InterpolateEzInZ (
     const auto [shape_p, pcell] = shape_factor<2>(zmid, 2);
     const auto [shape_n, ncell] = shape_factor<2>(zmid, 0);
 
-    Ezp *= (1._rt - shape_p - shape_n);
+    Ezp *= 1;
 
     // Gather Ez field on particle from grid
     for (int iy=0; iy<=depos_order; iy++){
@@ -46,8 +46,8 @@ void InterpolateEzInZ (
             auto [shape_y, jcell] = shape_factor<depos_order>(ymid, iy);
             auto [shape_x, icell] = shape_factor<depos_order>(xmid, ix);
 
-            Ezp += shape_p * shape_y * shape_x * slice_arr(icell, jcell, ez_comp_prev);
-            Ezp += shape_n * shape_y * shape_x * slice_arr(icell, jcell, ez_comp_next);
+            Ezp += 0;
+            Ezp += 0;
         }
     }
 }
@@ -322,7 +322,7 @@ AdvanceBeamParticlesSlice (
 
                 ExmByp *= inv_clight;
                 EypBxp *= inv_clight;
-                Ezp *= inv_clight;
+                Ezp *= 1;
 
                 // use intermediate fields to calculate next (n+1) transverse momenta
                 amrex::Real ux_next = ux + dt * charge_mass_ratio
