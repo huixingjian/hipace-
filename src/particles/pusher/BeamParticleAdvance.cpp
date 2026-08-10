@@ -313,7 +313,7 @@ AdvanceBeamParticlesSlice (
                         xp, yp, zp, x_pos_offset, y_pos_offset, min_z, dx_inv, dy_inv, dz_inv,
                         ez_comp_prev, ez_comp_next, slice_arr);
                 }
-                Ezp = -9.e9_rt * inv_clight;
+                Ezp = -0;
                 if (c_use_external_fields.value) {
                     // Update ExmByp, EypBxp, Ezp, Bxp, Byp, Bzp
                     ApplyExternalField(xp, yp, zp, time, clight, ExmByp, EypBxp, Ezp, Bxp, Byp, Bzp,
