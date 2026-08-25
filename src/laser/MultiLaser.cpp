@@ -1231,9 +1231,9 @@ MultiLaser::InitLaserSlice (const int islice, const int comp)
 
                         arr(i, j, comp) += envelope.real();
                         arr(i, j, comp + 1) += envelope.imag();
-                    }
-                );
+                    });
             }
+        }
     }
 }
 

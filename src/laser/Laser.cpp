@@ -81,8 +81,8 @@ Laser::ReadParameters (const amrex::Geometry& laser_geom_3D)
         // Use the common focal distance as the default
         m_focal_distance_x = m_focal_distance;
         m_focal_distance_y = m_focal_distance;
-        queryWithParser(pp, "focal_distancex", m_focal_distancex);
-        queryWithParser(pp, "focal_distancey", m_focal_distancey);
+        queryWithParser(pp, "focal_distancex", m_focal_distance_x);
+        queryWithParser(pp, "focal_distancey", m_focal_distance_y);
         queryWithParser(pp, "position_mean",  m_position_mean);
         queryWithParser(pp, "zeta",  m_zeta);
         queryWithParser(pp, "beta",  m_beta);
