@@ -40,7 +40,9 @@ public:
     // gaussian
 
     amrex::Real m_a0 {0.}; /**< Laser peak normalized amplitude */
-    amrex::Real m_w0 {0.}; /**< Laser waist */
+    amrex::Real m_w0 {0.}; /**< Laser waist on x direction*/
+    amrex::Real m_w0x {0.}; /**< Laser waist on x direction*/
+    amrex::Real m_w0y {0.}; /**< Laser waist on y direction*/
     amrex::Real m_CEP {0.}; /**< Laser carrier-envelope phase (CEP) */
     /** Propagation angle of the pulse in the yz plane (0 is along the z axis) */
     amrex::Real m_propagation_angle_yz {0.};
@@ -52,6 +54,8 @@ public:
     amrex::Real m_phi2 {0.};/**< The value of group delayed dispersion in s ^ -2 */
     /** Focal distance of the laser pulse */
     amrex::Real m_focal_distance {0.};
+    amrex::Real m_focal_distance_x {0.};
+    amrex::Real m_focal_distance_y {0.};
     /** Average position of the Gaussian laser pulse */
     amrex::RealVect m_position_mean {0., 0., 0.};
 

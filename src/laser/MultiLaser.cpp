@@ -1007,62 +1007,233 @@ MultiLaser::InitLaserSlice (const int islice, const int comp)
                         arr(i, j, comp + 1) += profile_imag(x,y,z);
                     });
             } else if (laser.m_laser_init_type == "gaussian") {
+
                 const amrex::Real a0 = laser.m_a0;
-                const amrex::Real w0_2 = laser.m_w0 * laser.m_w0;
-                const amrex::Real inv_tau2 = 1/(laser.m_tau*laser.m_tau);
+
+                const amrex::Real w0x_2 =
+                    laser.m_w0x * laser.m_w0x;
+                const amrex::Real w0y_2 =
+                    laser.m_w0y * laser.m_w0y;
+
+                const amrex::Real inv_tau2 =
+                    1._rt / (laser.m_tau * laser.m_tau);
+
                 const amrex::Real cep = laser.m_CEP;
-                const amrex::Real propagation_angle_yz = laser.m_propagation_angle_yz;
-                const amrex::Real x0 = laser.m_position_mean[0];
-                const amrex::Real y0 = laser.m_position_mean[1];
-                const amrex::Real z0 = laser.m_position_mean[2];
-                const amrex::Real L0 = laser.m_L0;
-                const amrex::Real zfoc = laser.m_focal_distance;
-                const amrex::Real zeta = laser.m_zeta;
-                const amrex::Real beta = laser.m_beta;
-                const amrex::Real phi2 = laser.m_phi2;
-                const amrex::Real clight = get_phys_const().c;
-                const amrex::Real theta_xy = laser.m_STC_theta_xy;
-                amrex::ParallelFor(to2D(bx),
+
+                const amrex::Real propagation_angle_yz =
+                    laser.m_propagation_angle_yz;
+
+                const amrex::Real cos_prop =
+                    std::cos(propagation_angle_yz);
+                const amrex::Real sin_prop =
+                    std::sin(propagation_angle_yz);
+
+                const amrex::Real x0 =
+                    laser.m_position_mean[0];
+                const amrex::Real y0 =
+                    laser.m_position_mean[1];
+                const amrex::Real z0 =
+                    laser.m_position_mean[2];
+
+                const amrex::Real L0 =
+                    laser.m_L0;
+
+                const amrex::Real zfoc_x =
+                    laser.m_focal_distance_x;
+                const amrex::Real zfoc_y =
+                    laser.m_focal_distance_y;
+
+                const amrex::Real zeta =
+                    laser.m_zeta;
+                const amrex::Real beta =
+                    laser.m_beta;
+                const amrex::Real phi2 =
+                    laser.m_phi2;
+
+                const amrex::Real clight =
+                    get_phys_const().c;
+
+                const amrex::Real theta_xy =
+                    laser.m_STC_theta_xy;
+
+                const amrex::Real cos_stc =
+                    std::cos(theta_xy);
+                const amrex::Real sin_stc =
+                    std::sin(theta_xy);
+
+                // Effective focal distance along the STC direction.
+                const amrex::Real zfoc_stc =
+                    zfoc_x * cos_stc * cos_stc
+                    + zfoc_y * sin_stc * sin_stc;
+
+                amrex::ParallelFor(
+                    to2D(bx),
                     [=] AMREX_GPU_DEVICE (int i, int j)
                     {
-                        const amrex::Real x = i * dx_arr[0] + poff_x - x0;
-                        const amrex::Real y = j * dx_arr[1] + poff_y - y0;
-                        const amrex::Real z = islice * dx_arr[2] + poff_z - z0;
-                        // Coordinate rotation in yz plane for a laser propagating at an angle.
-                        const amrex::Real yp = std::cos(propagation_angle_yz) * y
-                            - std::sin( propagation_angle_yz ) * z;
-                        const amrex::Real zp = std::sin(propagation_angle_yz) * y
-                            + std::cos(propagation_angle_yz) * z;
-                        // For first laser, setval to 0.
+                        // Coordinates relative to the laser center
+                        const amrex::Real x =
+                            i * dx_arr[0] + poff_x - x0;
+
+                        const amrex::Real y =
+                            j * dx_arr[1] + poff_y - y0;
+
+                        const amrex::Real z =
+                            islice * dx_arr[2] + poff_z - z0;
+
+                        // Rotate into the laser coordinate system.
+                        // x is unchanged; yp and zp are transverse and
+                        // longitudinal coordinates of the tilted laser.
+                        const amrex::Real yp =
+                            cos_prop * y - sin_prop * z;
+
+                        const amrex::Real zp =
+                            sin_prop * y + cos_prop * z;
+
+                        // For the first laser, initialize the array to zero.
                         if (ilaser == 0) {
-                            arr(i, j, comp) = 0._rt;
+                            arr(i, j, comp)     = 0._rt;
                             arr(i, j, comp + 1) = 0._rt;
                         }
-                        // Compute envelope for time step 0
-                        Complex diffract_factor = 1._rt + I * (zp - zfoc + z0 *
-                            std::cos(propagation_angle_yz)) * 2._rt/(k0 * w0_2);
-                        Complex inv_complex_waist_2 = 1._rt /(w0_2 * diffract_factor);
-                        // Time stretching due to STCs and phi2 complex envelope
-                        // (1 if zeta=0, beta=0, phi2=0)
-                        Complex stretch_factor = 1._rt
-                            + 4._rt * (zeta - beta * zfoc) * inv_tau2 * (zeta - beta * zfoc)
-                                    * inv_complex_waist_2
-                            + 2._rt * I * (-phi2 - beta * beta * k0 * zfoc) * inv_tau2;
-                        Complex prefactor = a0 / diffract_factor;
-                        Complex time_exponent = 1._rt / ( stretch_factor * L0 * L0 ) *
-                            amrex::Math::powi<2>(zp +
-                            beta * k0 * (x * std::cos(theta_xy) + yp * std::sin(theta_xy)) * clight
-                            -2._rt * I * (x * std::cos(theta_xy) + yp * std::sin(theta_xy))
-                            * (zeta + beta * zfoc) * clight * inv_complex_waist_2);
-                        Complex stcfactor = prefactor * amrex::exp( - time_exponent);
-                        Complex exp_argument = - (x * x + yp * yp) * inv_complex_waist_2;
-                        Complex envelope = stcfactor * amrex::exp(exp_argument) *
-                            amrex::exp(I * yp * k0 * propagation_angle_yz + cep);
+
+                        /*
+                        * Longitudinal coordinate used by the diffraction
+                        * factors. This preserves the convention of the
+                        * original HiPACE++ implementation.
+                        */
+                        const amrex::Real s =
+                            zp + z0 * cos_prop;
+
+                        /*
+                        * Independent complex diffraction factors:
+                        *
+                        * D_x = 1 + i (s-f_x)/z_Rx
+                        * D_y = 1 + i (s-f_y)/z_Ry
+                        *
+                        * where z_Rx = k0*w0x^2/2 and
+                        *       z_Ry = k0*w0y^2/2.
+                        */
+                        const Complex diffract_factor_x =
+                            1._rt
+                            + I * (s - zfoc_x)
+                            * 2._rt / (k0 * w0x_2);
+
+                        const Complex diffract_factor_y =
+                            1._rt
+                            + I * (s - zfoc_y)
+                            * 2._rt / (k0 * w0y_2);
+
+                        const Complex inv_complex_waistx_2 =
+                            1._rt / (w0x_2 * diffract_factor_x);
+
+                        const Complex inv_complex_waisty_2 =
+                            1._rt / (w0y_2 * diffract_factor_y);
+
+                        /*
+                        * STC coefficients resolved onto the two
+                        * astigmatic axes.
+                        */
+                        const amrex::Real stc_minus_x =
+                            (zeta - beta * zfoc_x) * cos_stc;
+
+                        const amrex::Real stc_minus_y =
+                            (zeta - beta * zfoc_y) * sin_stc;
+
+                        const amrex::Real stc_plus_x =
+                            (zeta + beta * zfoc_x) * cos_stc;
+
+                        const amrex::Real stc_plus_y =
+                            (zeta + beta * zfoc_y) * sin_stc;
+
+                        /*
+                        * Time stretching due to spatial chirp,
+                        * angular dispersion and GDD.
+                        *
+                        * For w0x=w0y and zfoc_x=zfoc_y, this reduces
+                        * exactly to the original cylindrically symmetric
+                        * expression.
+                        */
+                        const Complex stretch_factor =
+                            1._rt
+                            + 4._rt * inv_tau2
+                            * (
+                                stc_minus_x * stc_minus_x
+                                    * inv_complex_waistx_2
+                                +
+                                stc_minus_y * stc_minus_y
+                                    * inv_complex_waisty_2
+                            )
+                            + 2._rt * I
+                            * (
+                                -phi2
+                                - beta * beta * k0 * zfoc_stc
+                            )
+                            * inv_tau2;
+
+                        // Coordinate along the chosen STC direction
+                        const amrex::Real transverse_stc_coordinate =
+                            x * cos_stc + yp * sin_stc;
+
+                        /*
+                        * Generalized spatial-temporal coupling term.
+                        * The inverse complex waist must be applied
+                        * independently along x and y'.
+                        */
+                        const Complex spatial_time_coupling =
+                            x * stc_plus_x * inv_complex_waistx_2
+                            +
+                            yp * stc_plus_y * inv_complex_waisty_2;
+
+                        const Complex longitudinal_coordinate =
+                            zp
+                            + beta * k0
+                                * transverse_stc_coordinate
+                                * clight
+                            - 2._rt * I
+                                * clight
+                                * spatial_time_coupling;
+
+                        const Complex time_exponent =
+                            amrex::Math::powi<2>(
+                                longitudinal_coordinate
+                            )
+                            / (
+                                stretch_factor * L0 * L0
+                            );
+
+                        /*
+                        * Product of two one-dimensional Gaussian
+                        * diffraction prefactors.
+                        *
+                        * This conserves transverse power during vacuum
+                        * propagation.
+                        */
+                        const Complex prefactor =
+                            a0
+                            / (
+                                amrex::sqrt(diffract_factor_x)
+                                * amrex::sqrt(diffract_factor_y)
+                            );
+
+                        const Complex transverse_exponent =
+                            -x * x * inv_complex_waistx_2
+                            -yp * yp * inv_complex_waisty_2;
+
+                        const Complex envelope =
+                            prefactor
+                            * amrex::exp(-time_exponent)
+                            * amrex::exp(transverse_exponent)
+                            * amrex::exp(
+                                I * (
+                                    yp * k0 * propagation_angle_yz
+                                    + cep
+                                )
+                            );
+
                         arr(i, j, comp) += envelope.real();
                         arr(i, j, comp + 1) += envelope.imag();
-                    });
+                    }
+                );
             }
-        }
     }
 }
 
